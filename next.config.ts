@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+// @ts-ignore
 import withPWAInit from "next-pwa";
 
 const withPWA = withPWAInit({
@@ -9,18 +10,11 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
-  
   turbopack: {}, 
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'openweathermap.org',
-      },
-      {
-        protocol: 'https',
-        hostname: 'tile.openweathermap.org',
-      },
+      { protocol: 'https', hostname: 'openweathermap.org' },
+      { protocol: 'https', hostname: 'tile.openweathermap.org' },
     ],
   },
 };
