@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
-// Dynamic import with SSR disabled to prevent window-related errors
+
 const Map = dynamic(() => import('./RadarMap'), { 
   ssr: false,
   loading: () => (
