@@ -78,7 +78,7 @@ export default function HourlyGraph({ forecastData }: { forecastData: any }) {
               fill="url(#neonGradient)"
               animationDuration={2500}
               dot={{ r: 4, fill: '#22d3ee', strokeWidth: 2, stroke: '#020205', opacity: 1 }}
-              activeDot={{ r: 6, fill: '#fff', strokeWidth: 0, shadow: "0 0 15px #fff" }}
+              activeDot={{ r: 6, fill: '#fff', strokeWidth: 0 }}
             />
           </AreaChart>
         </ResponsiveContainer>
