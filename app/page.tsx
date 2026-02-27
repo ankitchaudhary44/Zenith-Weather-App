@@ -1,3 +1,7 @@
+"use client";
+
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import CurrentWeather from "@/components/CurrentWeather";
 import SearchBar from "@/components/SearchBar";
 import Forecast from "@/components/Forecast";
@@ -9,61 +13,79 @@ import SunOrbit from "@/components/SunOrbit";
 import SystemLogs from "@/components/SystemLogs";
 import RadarMapWrapper from "@/components/RadarMapWrapper";
 
-async function getCityFromIP() {
-  try {
-    const res = await fetch("http://ip-api.com/json/", { next: { revalidate: 3600 } });
-    const data = await res.json();
-    return data.status === "success" ? data.city : "Chennai";
-  } catch {
-    return "Chennai";
-  }
-}
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const [weatherData, setWeatherData] = useState<any>(null);
+  const [hourlyData, setHourlyData] = useState<any>(null);
+  const [dailyData, setDailyData] = useState<any>(null);
+  const [aqiData, setAqiData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-async function getWeatherData(city: string) {
-  const apiKey = process.env.WEATHER_API_KEY; 
-  const currentUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=metric&appid=${apiKey}`;
+  const apiKey = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
 
-  try {
-    const currentRes = await fetch(currentUrl, { next: { revalidate: 60 } });
-    if (!currentRes.ok) return null;
-    const currentData = await currentRes.json();
+  const fetchAllData = async (query: string | { lat: number; lon: number }) => {
+    setLoading(true);
+    try {
+      let currentUrl = "";
+      if (typeof query === "string") {
+        currentUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(query)}&units=metric&appid=${apiKey}`;
+      } else {
+        currentUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${query.lat}&lon=${query.lon}&units=metric&appid=${apiKey}`;
+      }
 
-    const { lat, lon } = currentData.coord;
-    const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
-    const forecastUrlOW = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&units=metric&appid=${apiKey}`;
-    const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,uv_index_max&timezone=auto`;
-    
-    const [aqiRes, owForecastRes, omForecastRes] = await Promise.all([
-      fetch(aqiUrl),
-      fetch(forecastUrlOW, { next: { revalidate: 60 } }),
-      fetch(openMeteoUrl)
-    ]);
+      const currentRes = await fetch(currentUrl);
+      if (!currentRes.ok) throw new Error();
+      const currentData = await currentRes.json();
 
-    const aqiData = await aqiRes.json();
-    const owForecastData = await owForecastRes.json();
-    const omForecastData = await omForecastRes.json();
+      const { lat, lon } = currentData.coord;
+      const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+      const forecastUrlOW = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`;
+      const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,uv_index_max&timezone=auto`;
 
-    return { 
-      current: currentData, 
-      aqi: aqiData,
-      hourly: owForecastData, 
-      daily: omForecastData 
-    };
-  } catch (error) {
-    return null;
-  }
-}
+      const [aqiRes, owForecastRes, omForecastRes] = await Promise.all([
+        fetch(aqiUrl),
+        fetch(forecastUrlOW),
+        fetch(openMeteoUrl)
+      ]);
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ city?: string }> }) {
-  const params = await searchParams;
-  const cityParam = params?.city;
-  const city = cityParam || await getCityFromIP();
-  const data = await getWeatherData(city);
+      setWeatherData(currentData);
+      setAqiData(await aqiRes.json());
+      setHourlyData(await owForecastRes.json());
+      setDailyData(await omForecastRes.json());
+    } catch (error) {
+      setWeatherData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const weatherData = data?.current;
-  const hourlyData = data?.hourly;
-  const dailyData = data?.daily;
-  const aqiData = data?.aqi;
+  useEffect(() => {
+    const cityParam = searchParams.get("city");
+
+    if (cityParam) {
+      fetchAllData(cityParam);
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          fetchAllData({ 
+            lat: position.coords.latitude, 
+            lon: position.coords.longitude 
+          });
+        },
+        async () => {
+          try {
+            const res = await fetch("https://ipapi.co/json/");
+            const data = await res.json();
+            fetchAllData(data.city || "Vellore");
+          } catch {
+            fetchAllData("Vellore");
+          }
+        }
+      );
+    } else {
+      fetchAllData("Vellore");
+    }
+  }, [searchParams]);
 
   const currentDate = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -85,7 +107,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
 
         <SearchBar />
         
-        {!weatherData ? (
+        {loading ? (
+          <div className="flex items-center justify-center h-[50vh]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400 shadow-[0_0_15px_#22d3ee]"></div>
+          </div>
+        ) : !weatherData ? (
           <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4 px-6">
             <h2 className="text-5xl lg:text-7xl font-[1000] italic text-white/10 tracking-tighter uppercase leading-none">
               Signal Lost
@@ -136,5 +162,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
         )}
       </div>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }
