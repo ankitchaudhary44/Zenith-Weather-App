@@ -66,23 +66,34 @@ export default function Home() {
       if (cityParam) {
         const data = await getWeatherData(cityParam);
         setWeatherData(data);
-      } else if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            const data = await getWeatherData({ lat: latitude, lon: longitude });
-            setWeatherData(data);
-          },
-          async () => {
-            const res = await fetch("http://ip-api.com/json/");
-            const ipData = await res.json();
-            const fallbackCity = ipData.status === "success" ? ipData.city : "Chennai";
-            const data = await getWeatherData(fallbackCity);
-            setWeatherData(data);
-          }
-        );
+        setLoading(false);
+      } else {
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const { latitude, longitude } = position.coords;
+              const data = await getWeatherData({ lat: latitude, lon: longitude });
+              setWeatherData(data);
+              setLoading(false);
+            },
+            async (error) => {
+              const res = await fetch("http://ip-api.com/json/");
+              const ipData = await res.json();
+              const fallbackCity = ipData.status === "success" ? ipData.city : "Chennai";
+              const data = await getWeatherData(fallbackCity);
+              setWeatherData(data);
+              setLoading(false);
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          );
+        } else {
+          const res = await fetch("http://ip-api.com/json/");
+          const ipData = await res.json();
+          const data = await getWeatherData(ipData.city || "Chennai");
+          setWeatherData(data);
+          setLoading(false);
+        }
       }
-      setLoading(false);
     };
 
     initWeather();
@@ -94,7 +105,11 @@ export default function Home() {
     day: "numeric",
   });
 
-  if (loading) return <div className="min-h-screen bg-[#020205]" />;
+  if (loading) return (
+    <div className="min-h-screen bg-[#020205] flex items-center justify-center">
+      <p className="text-white/20 font-black tracking-widest animate-pulse">ESTABLISHING CONNECTION...</p>
+    </div>
+  );
 
   const data = weatherData?.current;
   const hourlyData = weatherData?.hourly;
@@ -126,9 +141,6 @@ export default function Home() {
               <p className="text-white/30 font-black tracking-[0.4em] uppercase text-[9px] lg:text-[10px]">
                 Coordinate Data Not Found
               </p>
-              <p className="text-white/10 text-[8px] lg:text-[9px] uppercase tracking-widest">
-                Verify city name or try a major sector
-              </p>
             </div>
           </div>
         ) : (
@@ -137,30 +149,24 @@ export default function Home() {
               <div className="lg:col-span-2">
                 <CurrentWeather data={data} />
               </div>
-
               <div className="group relative transition-all duration-700 hover:lg:-translate-y-3">
                 <div className="hidden lg:block absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[3rem] pointer-events-none border border-white/10 shadow-2xl"></div>
                 <Forecast forecastData={dailyData} />
               </div>
-
               <div className="lg:col-span-1">
                 <SunOrbit sunrise={data.sys.sunrise} sunset={data.sys.sunset} />
               </div>
-
               <div className="lg:col-span-1">
                 <AdvancedStats aqiData={aqiData} uvData={dailyData} />
               </div>
-
               <div className="lg:col-span-1 group relative transition-all duration-700 hover:lg:-translate-y-3">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[2.5rem] lg:rounded-[3.5rem] pointer-events-none z-10 border border-white/5 shadow-2xl"></div>
                 <HourlyGraph forecastData={hourlyData} />
               </div>
-
               <div className="lg:col-span-3">
                 <RadarMapWrapper lat={data.coord.lat} lon={data.coord.lon} />
               </div>
             </div>
-
             <SystemLogs />
           </div>
         )}
