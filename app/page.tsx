@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import CurrentWeather from "@/components/CurrentWeather";
 import SearchBar from "@/components/SearchBar";
 import Forecast from "@/components/Forecast";
@@ -11,7 +12,18 @@ import RainOverlay from "@/components/RainOverlay";
 import AdvancedStats from "@/components/AdvancedStats";
 import SunOrbit from "@/components/SunOrbit";
 import SystemLogs from "@/components/SystemLogs";
-import RadarMapWrapper from "@/components/RadarMapWrapper";
+
+const RadarMapWrapper = dynamic(
+  () => import("@/components/RadarMapWrapper"),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="h-[550px] w-full bg-[#0a0a0f]/50 animate-pulse rounded-[2.5rem] lg:rounded-[4rem] border border-white/5 flex items-center justify-center">
+        <span className="text-cyan-400/20 text-[10px] font-black uppercase tracking-[0.5em]">Initializing Satellite Mapping...</span>
+      </div>
+    )
+  }
+);
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -61,8 +73,15 @@ function HomeContent() {
 
   useEffect(() => {
     const cityParam = searchParams.get("city");
+    const latParam = searchParams.get("lat");
+    const lonParam = searchParams.get("lon");
 
-    if (cityParam) {
+    if (latParam && lonParam) {
+      fetchAllData({ 
+        lat: parseFloat(latParam), 
+        lon: parseFloat(lonParam) 
+      });
+    } else if (cityParam) {
       fetchAllData(cityParam);
     } else if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -116,10 +135,6 @@ function HomeContent() {
             <h2 className="text-5xl lg:text-7xl font-[1000] italic text-white/10 tracking-tighter uppercase leading-none">
               Signal Lost
             </h2>
-            <div className="space-y-2">
-              <p className="text-white/30 font-black tracking-[0.4em] uppercase text-[9px] lg:text-[10px]">Coordinate Data Not Found</p>
-              <p className="text-white/10 text-[8px] lg:text-[9px] uppercase tracking-widest">Verify city name or try a major sector</p>
-            </div>
           </div>
         ) : (
           <div className="w-full space-y-4 lg:space-y-6">
@@ -127,36 +142,22 @@ function HomeContent() {
               <div className="lg:col-span-2">
                 <CurrentWeather data={weatherData} />
               </div>
-              
               <div className="group relative transition-all duration-700 hover:lg:-translate-y-3">
-                <div className="hidden lg:block absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[3rem] pointer-events-none border border-white/10 shadow-2xl"></div>
                 <Forecast forecastData={dailyData} />
               </div>
-
               <div className="lg:col-span-1">
-                <SunOrbit 
-                  sunrise={weatherData.sys.sunrise} 
-                  sunset={weatherData.sys.sunset} 
-                />
+                <SunOrbit sunrise={weatherData.sys.sunrise} sunset={weatherData.sys.sunset} />
               </div>
-
               <div className="lg:col-span-1">
                 <AdvancedStats aqiData={aqiData} uvData={dailyData} />
               </div>
-              
               <div className="lg:col-span-1 group relative transition-all duration-700 hover:lg:-translate-y-3">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[2.5rem] lg:rounded-[3.5rem] pointer-events-none z-10 border border-white/5 shadow-2xl"></div>
                 <HourlyGraph forecastData={hourlyData} />
               </div>
-
               <div className="lg:col-span-3">
-                <RadarMapWrapper 
-                  lat={weatherData.coord.lat} 
-                  lon={weatherData.coord.lon} 
-                />
+                <RadarMapWrapper lat={weatherData.coord.lat} lon={weatherData.coord.lon} />
               </div>
             </div>
-            
             <SystemLogs />
           </div>
         )}

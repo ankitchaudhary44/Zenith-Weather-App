@@ -1,10 +1,24 @@
 "use client";
 
 import { useEffect, useState, MouseEvent } from "react";
-import { MapContainer, TileLayer, LayersControl, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, LayersControl, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
+import { useRouter } from "next/navigation";
+
+
+function MapClickHandler() {
+  const router = useRouter();
+  useMapEvents({
+    click: (e) => {
+      const { lat, lng } = e.latlng;
+      
+      router.push(`/?lat=${lat}&lon=${lng}`);
+    },
+  });
+  return null;
+}
 
 function ChangeView({ center, zoom }: { center: [number, number], zoom: number }) {
   const map = useMap();
@@ -43,7 +57,7 @@ export default function RadarMap({ lat, lon }: { lat: number, lon: number }) {
     mouseY.set(clientY - top);
   }
 
-  if (!mounted) return <div className="h-[500px] w-full bg-white/5 animate-pulse rounded-[3.5rem]" />;
+  if (!mounted) return <div className="h-[550px] w-full bg-white/5 animate-pulse rounded-[3.5rem]" />;
 
   return (
     <motion.div 
@@ -81,6 +95,7 @@ export default function RadarMap({ lat, lon }: { lat: number, lon: number }) {
         >
           <ChangeView center={[lat, lon]} zoom={10} />
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <MapClickHandler />
 
           <LayersControl position="topright">
             <LayersControl.Overlay checked name="Atmospheric Clouds">
@@ -114,7 +129,6 @@ export default function RadarMap({ lat, lon }: { lat: number, lon: number }) {
             <span className="text-[12px] md:text-[14px] font-[1000] text-white tracking-widest uppercase italic drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]">
               Managed by <span className="text-cyan-400 underline decoration-cyan-500/50 underline-offset-4">Ankit Chaudhary</span>
             </span>
-            
           </div>
       </div>
     </motion.div>
